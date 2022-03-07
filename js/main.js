@@ -58,12 +58,9 @@ function handleDragOver(evt) {
 	evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
 }
 
-var loadSampleGPX = function() {
-	// d3.xml("A_solo_marathon.gpx", function(data) {
-	// 	d3gpx.loadGPXViewer(data);
-	// });
+function loadSampleGPX() {
 	d3.xml("data/A_solo_marathon.gpx", function(data) {
-		d3gpx.loadGPXViewer(data);
+		loadGPXViewer(data);
 	});
 };
 
@@ -75,6 +72,8 @@ var dropZone = document.getElementsByClassName('dDataDropZone')[0];
 	dropZone.addEventListener('dragleave', handleDragLeave, false);
 
 var fileUpload = document.getElementById('dDataFileUpload');
-	fileUpload.addEventListener("change", function () {
-		xferFiles(this.files);
-	}, false);
+fileUpload.addEventListener("change", function () {
+	xferFiles(this.files);
+}, false);
+
+loadSampleGPX();
