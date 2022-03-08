@@ -101,7 +101,7 @@ function stopMove() {
 	targetValue = currentValue;
 };
 
-function move(sensitivity) {
+function move() {
 	if (moving) return false;
 	moving = true;
 	
@@ -151,7 +151,7 @@ function play(immediate = false) {
 		var timeNow = new Date();
 
 		d3.timer(function() {
-			var lapsed = ( (new Date() - timeNow) * 1000 );
+			var lapsed = ( (new Date() - timeNow) * 100 ); // speed: 100 is slow, 1000 is fast
 			currentValue = startValue.getTime() + lapsed;
 			// var myDate = new Date( currentValue);
 			// console.log(myDate.toGMTString()+"<hr>"+myDate.toLocaleString());
@@ -159,7 +159,12 @@ function play(immediate = false) {
 
 			var newMoving = Math.round(currentValue/1000) < Math.round(targetValue/1000);
 			var finished = !moving || !(moving = newMoving) || !playing || autoPlayId == -1;
-			if (finished) {
+			if (Math.round(currentValue/1000) == Math.round(targetValue/1000)) {
+				// it ended - replay
+				slider.call(brush.extent([minMaxDates[0], minMaxDates[0]])).call(brush.event);
+				play(true);
+			}
+			else if (finished) {
 				d3.select("button#playpausebtn").text("Play");
 				stopPlay();
 			}
@@ -267,14 +272,7 @@ function getWidthAndHeight(element) {
 	return [parseInt(element.style("width"), 10), parseInt(element.style("height"), 10)];
 };
 
-function pause() {
-	//console.log("pause...");
-	stopPlay();
-}
-
 function loadGPXViewer(data, data2) {
-	console.log(data);
-	console.log(data2);
 
 	dateList = [];
 	lonList = [];
@@ -336,9 +334,9 @@ function loadGPXViewer(data, data2) {
 
 	d3.select("body").selectAll("div#gpxCtr *, div#appTitle div#playbackControl").remove();
 
-
-	minMaxDates = d3.extent(dateList);//[dateList[0], dateList[dateList.length-1]];
-	console.log("dates #: " + dateList.length + " \t longitudes #: " + lonList.length + " \t latitudes #: " + latList.length + " \t elevation #: " + eleList.length + " \t speed #: " + speedList.length);
+	// between both activities, get the earliest and latest timestamps
+	minMaxDates = d3.extent(dateList.concat(dateList2));
+	console.log("dates #: " + dateList.length + " \n longitudes #: " + lonList.length + " \n latitudes #: " + latList.length + " \n elevation #: " + eleList.length + " \n speed #: " + speedList.length);
 	
 	lonScale = d3.time.scale().domain(dateList).range(lonList).clamp(true);
 	latScale = d3.time.scale().domain(dateList).range(latList).clamp(true);
@@ -523,7 +521,7 @@ function loadGPXViewer(data, data2) {
 	setInitialExtent(); 							// fit initial view to all gps data
 	redraw(); 										// initialise basemap, path and point
 	// play();										// auto play gps track recording
-	//setTimeout(function() { brushed(true); }, 200);	// initialise position of brush
+	setTimeout(function() { brushed(true); }, 200);	// initialise position of brush
 
 	return true;
 }
