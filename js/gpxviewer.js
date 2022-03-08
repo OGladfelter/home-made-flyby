@@ -87,9 +87,13 @@ function brushed(init) {
 	var text1 = format(new Date(currentValueRounded));
 
 	d3.select("div#console").text(text1);
-	d3.select("svg#testArea circle.track")
+	d3.select("svg#testArea #circle1")
 		.attr("transform", function(d) {
 			return "translate(" + projection([lonScale(new Date(currentValueRounded)), latScale(new Date(currentValueRounded))]) + ")"
+		});	
+	d3.select("svg#testArea #circle2")
+		.attr("transform", function(d) {
+			return "translate(" + projection([lonScale2(new Date(currentValueRounded)), latScale2(new Date(currentValueRounded))]) + ")"
 		});		
 };
 
@@ -223,18 +227,24 @@ function redraw() {
 	
 	if (zoomBehaviour || !(d3.event)) {
 		testArea.select("path.trackpath").attr("d", path).attr("transform", null);
+		testArea.select("path.trackpath2").attr("d", path).attr("transform", null);
 	} else {
 		var x = d3.event.translate[0] - zoomEventXY[0];
 		var y = d3.event.translate[1] - zoomEventXY[1];
-		var asd = testArea.select("path.trackpath").attr("transform");
+		//var asd = testArea.select("path.trackpath").attr("transform");
 		testArea.select("path.trackpath").attr("transform", "translate(" + [x, y] + ")");
+		testArea.select("path.trackpath2").attr("transform", "translate(" + [x, y] + ")");
 	}
 	
 	
 	var currentValueRounded = Math.round(brush.extent()[0]);
-	testArea.select("circle.track")
+	testArea.select("#circle1")
 		.attr("transform", function(d) {
 			return "translate(" + projection([lonScale(new Date(currentValueRounded)), latScale(new Date(currentValueRounded))]) + ")"
+		});
+	testArea.select("#circle2")
+		.attr("transform", function(d) {
+			return "translate(" + projection([lonScale2(new Date(currentValueRounded)), latScale2(new Date(currentValueRounded))]) + ")"
 		});
 	
 		
@@ -262,7 +272,10 @@ function pause() {
 	stopPlay();
 }
 
-function loadGPXViewer(data) {
+function loadGPXViewer(data, data2) {
+	console.log(data);
+	console.log(data2);
+
 	dateList = [];
 	lonList = [];
 	latList = [];
@@ -272,6 +285,14 @@ function loadGPXViewer(data) {
 	pdopList = [];
 	lineString = [];
 
+	dateList2 = [];
+	lonList2 = [];
+	latList2 = [];
+	eleList2 = [];
+	courseList2 = [];
+	speedList2 = [];
+	pdopList2 = [];
+	lineString2 = [];
 
 	stopPlay();
 	stopMove();
@@ -279,7 +300,7 @@ function loadGPXViewer(data) {
 		
 		
 	// Load GPX data
-	var trkPtData = d3.select(data).selectAll("trk").selectAll("trkseg").selectAll("trkpt").each(function() {
+	d3.select(data).selectAll("trk").selectAll("trkseg").selectAll("trkpt").each(function() {
 		var lat = parseFloat(d3.select(this).attr("lat"));
 		var lon = parseFloat(d3.select(this).attr("lon"));
 		
@@ -292,6 +313,20 @@ function loadGPXViewer(data) {
 		courseList.push((!d3.select(this).select("course").node()) ? null : parseFloat(d3.select(this).select("course").text()));
 		speedList.push((!d3.select(this).select("speed").node()) ? null : parseFloat(d3.select(this).select("speed").text()));
 		pdopList.push((!d3.select(this).select("pdop").node()) ? null : parseFloat(d3.select(this).select("pdop").text()));
+	});
+	d3.select(data2).selectAll("trk").selectAll("trkseg").selectAll("trkpt").each(function() {
+		var lat = parseFloat(d3.select(this).attr("lat"));
+		var lon = parseFloat(d3.select(this).attr("lon"));
+		
+		latList2.push(lat);
+		lonList2.push(lon);
+		lineString2.push([lon, lat]);
+		
+		dateList2.push((!d3.select(this).select("time").node()) ? null : new Date(d3.select(this).select("time").text()));
+		eleList2.push((!d3.select(this).select("ele").node()) ? null : parseFloat(d3.select(this).select("ele").text()));
+		courseList2.push((!d3.select(this).select("course").node()) ? null : parseFloat(d3.select(this).select("course").text()));
+		speedList2.push((!d3.select(this).select("speed").node()) ? null : parseFloat(d3.select(this).select("speed").text()));
+		pdopList2.push((!d3.select(this).select("pdop").node()) ? null : parseFloat(d3.select(this).select("pdop").text()));
 	});
 
 	if (lineString.length <= 1) {
@@ -307,8 +342,12 @@ function loadGPXViewer(data) {
 	
 	lonScale = d3.time.scale().domain(dateList).range(lonList).clamp(true);
 	latScale = d3.time.scale().domain(dateList).range(latList).clamp(true);
+
+	lonScale2 = d3.time.scale().domain(dateList2).range(lonList2).clamp(true);
+	latScale2 = d3.time.scale().domain(dateList2).range(latList2).clamp(true);
 	
 	pathGeometry = { "type": "LineString", "coordinates": lineString };
+	pathGeometry2 = { "type": "LineString", "coordinates": lineString2 };
 	
 	
 	
@@ -447,22 +486,38 @@ function loadGPXViewer(data) {
 					.call(zoomControl);
 
 	raster = testArea.append("g"); // Base map
-	
+		
 	testArea.append("path")
 		.datum(pathGeometry)
 		.attr("class", "trackpath")
 		.attr("d", path)
 		.attr("fill", "none")
 		.attr("stroke", "rgb(222,45,38)")
-		.attr("stroke-width", 1);
+		.attr("stroke-width", 2);
 
 	testArea.append("circle")
-			.attr("class", "track")
-			.attr("id", "testTrack")
-			.attr("r", 4)
-			.style("fill", "rgb(222,45,38)")
-			.style("stroke-width", 1)
-			.style("stroke", "rgb(0,0,0)");
+		.attr("class", "track")
+		.attr("id", "circle1")
+		.attr("r", 10)
+		.style("fill", "rgb(222,45,38)")
+		.style("stroke-width", 1)
+		.style("opacity", 0.5);
+
+	testArea.append("path")
+		.datum(pathGeometry2)
+		.attr("class", "trackpath2")
+		.attr("d", path)
+		.attr("fill", "none")
+		.attr("stroke", "rgb(38,45,222)")
+		.attr("stroke-width", 2);
+	
+	testArea.append("circle")
+		.attr("class", "track")
+		.attr("id", "circle2")
+		.attr("r", 10)
+		.style("fill", "rgb(38,45,222)")
+		.style("stroke-width", 1)
+		.style("opacity", 0.5);
 
 	// do not shift this order!
 	setInitialExtent(); 							// fit initial view to all gps data
