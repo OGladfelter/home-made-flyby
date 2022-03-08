@@ -1,13 +1,5 @@
 var autoPlayId = -1, playing = false;
 var minMaxDates; 
-var dateList = []; 		// ISO 8601
-var lonList = []; 		// decimal degrees
-var latList = []; 		// decimal degrees
-var eleList = [];		// meters
-var courseList = [];	// degrees
-var speedList = [];		// m/s
-var pdopList = [];
-var lineString = [];
 var lonScale, latScale, eleScale, speedScale;
 
 var customTimeFormat = d3.time.format.multi([
@@ -151,7 +143,7 @@ function play(immediate = false) {
 		var timeNow = new Date();
 
 		d3.timer(function() {
-			var lapsed = ( (new Date() - timeNow) * 100 ); // speed: 100 is slow, 1000 is fast
+			var lapsed = ( (new Date() - timeNow) * 250 ); // speed: 100 is slow, 1000 is fast
 			currentValue = startValue.getTime() + lapsed;
 			// var myDate = new Date( currentValue);
 			// console.log(myDate.toGMTString()+"<hr>"+myDate.toLocaleString());
@@ -159,10 +151,10 @@ function play(immediate = false) {
 
 			var newMoving = Math.round(currentValue/1000) < Math.round(targetValue/1000);
 			var finished = !moving || !(moving = newMoving) || !playing || autoPlayId == -1;
-			if (Math.round(currentValue/1000) == Math.round(targetValue/1000)) {
+			if (Math.round(currentValue/1000) >= Math.round(minMaxDates[1]/1000)) {
 				// it ended - replay
 				slider.call(brush.extent([minMaxDates[0], minMaxDates[0]])).call(brush.event);
-				play(true);
+				play(false);
 			}
 			else if (finished) {
 				d3.select("button#playpausebtn").text("Play");
@@ -171,7 +163,7 @@ function play(immediate = false) {
 			
 			return finished;
 		});
-	}, (immediate) ? 0 : 3000);
+	}, (immediate) ? 0 : 1500);
 };
 
 function leftShiftCorrectly(a, b) {
@@ -274,30 +266,17 @@ function getWidthAndHeight(element) {
 
 function loadGPXViewer(data, data2) {
 
-	dateList = [];
+	timestampList = [];
 	lonList = [];
 	latList = [];
-	eleList = [];
-	courseList = [];
-	speedList = [];
-	pdopList = [];
 	lineString = [];
 
-	dateList2 = [];
+	timestampList2 = [];
 	lonList2 = [];
 	latList2 = [];
-	eleList2 = [];
-	courseList2 = [];
-	speedList2 = [];
-	pdopList2 = [];
 	lineString2 = [];
-
-	stopPlay();
-	stopMove();
 	
-		
-		
-	// Load GPX data
+	// read GPX data
 	d3.select(data).selectAll("trk").selectAll("trkseg").selectAll("trkpt").each(function() {
 		var lat = parseFloat(d3.select(this).attr("lat"));
 		var lon = parseFloat(d3.select(this).attr("lon"));
@@ -305,12 +284,7 @@ function loadGPXViewer(data, data2) {
 		latList.push(lat);
 		lonList.push(lon);
 		lineString.push([lon, lat]);
-		
-		dateList.push((!d3.select(this).select("time").node()) ? null : new Date(d3.select(this).select("time").text()));
-		eleList.push((!d3.select(this).select("ele").node()) ? null : parseFloat(d3.select(this).select("ele").text()));
-		courseList.push((!d3.select(this).select("course").node()) ? null : parseFloat(d3.select(this).select("course").text()));
-		speedList.push((!d3.select(this).select("speed").node()) ? null : parseFloat(d3.select(this).select("speed").text()));
-		pdopList.push((!d3.select(this).select("pdop").node()) ? null : parseFloat(d3.select(this).select("pdop").text()));
+		timestampList.push((!d3.select(this).select("time").node()) ? null : new Date(d3.select(this).select("time").text()));
 	});
 	d3.select(data2).selectAll("trk").selectAll("trkseg").selectAll("trkpt").each(function() {
 		var lat = parseFloat(d3.select(this).attr("lat"));
@@ -319,35 +293,29 @@ function loadGPXViewer(data, data2) {
 		latList2.push(lat);
 		lonList2.push(lon);
 		lineString2.push([lon, lat]);
-		
-		dateList2.push((!d3.select(this).select("time").node()) ? null : new Date(d3.select(this).select("time").text()));
-		eleList2.push((!d3.select(this).select("ele").node()) ? null : parseFloat(d3.select(this).select("ele").text()));
-		courseList2.push((!d3.select(this).select("course").node()) ? null : parseFloat(d3.select(this).select("course").text()));
-		speedList2.push((!d3.select(this).select("speed").node()) ? null : parseFloat(d3.select(this).select("speed").text()));
-		pdopList2.push((!d3.select(this).select("pdop").node()) ? null : parseFloat(d3.select(this).select("pdop").text()));
+		timestampList2.push((!d3.select(this).select("time").node()) ? null : new Date(d3.select(this).select("time").text()));
 	});
 
 	if (lineString.length <= 1) {
-		alert("GPX file should contain at least a track, made of at least one segment containing waypoints.");
+		// GPX file is no good
 		return false;
 	}
 
-	d3.select("body").selectAll("div#gpxCtr *, div#appTitle div#playbackControl").remove();
-
 	// between both activities, get the earliest and latest timestamps
-	minMaxDates = d3.extent(dateList.concat(dateList2));
-	console.log("dates #: " + dateList.length + " \n longitudes #: " + lonList.length + " \n latitudes #: " + latList.length + " \n elevation #: " + eleList.length + " \n speed #: " + speedList.length);
+	minMaxDates = d3.extent(timestampList.concat(timestampList2));
+	console.assert(timestampList.length == lonList.length);
+	console.assert(timestampList.length == latList.length);
+	console.assert(timestampList2.length == lonList2.length);
+	console.assert(timestampList2.length == latList2.length);
 	
-	lonScale = d3.time.scale().domain(dateList).range(lonList).clamp(true);
-	latScale = d3.time.scale().domain(dateList).range(latList).clamp(true);
-
-	lonScale2 = d3.time.scale().domain(dateList2).range(lonList2).clamp(true);
-	latScale2 = d3.time.scale().domain(dateList2).range(latList2).clamp(true);
+	// used for moving the circle around
+	lonScale = d3.time.scale().domain(timestampList).range(lonList).clamp(true);
+	latScale = d3.time.scale().domain(timestampList).range(latList).clamp(true);
+	lonScale2 = d3.time.scale().domain(timestampList2).range(lonList2).clamp(true);
+	latScale2 = d3.time.scale().domain(timestampList2).range(latList2).clamp(true);
 	
 	pathGeometry = { "type": "LineString", "coordinates": lineString };
 	pathGeometry2 = { "type": "LineString", "coordinates": lineString2 };
-	
-	
 	
 	// Map projection stuffs
 	projection = d3.geo.mercator().scale((1 << 10) / 2 / Math.PI);
@@ -360,8 +328,6 @@ function loadGPXViewer(data, data2) {
 						.scale(projection.scale() * 2 * Math.PI)
 						.translate([window.innerWidth / 2, window.innerHeight / 2])
 						.on("zoom", redraw);
-
-		
 		
 	// Timeline, brush, labels and stuffs
 	x = d3.time.scale()
@@ -385,16 +351,11 @@ function loadGPXViewer(data, data2) {
 			}
 		});
 
-
-	
-	
-	var appTitleControlContainer = d3.select("div#appTitle").append("div").attr("id", "playbackControl");
+	var topBannerControlContainer = d3.select("div#topBanner").append("div").attr("id", "playbackControl");
 	var gpxContainer = d3.select("body div#gpxCtr");
 	
-	
-	
 	// Controls	
-	var div = appTitleControlContainer.append("div").attr("id", "console")
+	var div = topBannerControlContainer.append("div").attr("id", "console")
 					.style("font-size", "smaller")
 					.style("font-weight", "normal")
 					.style("position", "absolute")
@@ -403,7 +364,7 @@ function loadGPXViewer(data, data2) {
 					.style("top", "0px")
 					.style("padding-right", "10px");
 
-	var playButton = appTitleControlContainer.append("button")
+	var playButton = topBannerControlContainer.append("button")
 					.attr("id", "playpausebtn")
 					.style("right", (width + margin.left + margin.right + 10 + 170 + 10) + "px")
 					.text("Play")
@@ -415,7 +376,7 @@ function loadGPXViewer(data, data2) {
 						}
 					});
 
-	var svg = appTitleControlContainer.append("svg")
+	var svg = topBannerControlContainer.append("svg")
 					.attr("id", "timeslider")
 					.attr("width", width + margin.left + margin.right + 10)
 					.attr("height", height + margin.top)
@@ -425,17 +386,6 @@ function loadGPXViewer(data, data2) {
 					.style("top", "0px")
 					.append("g")
 						.attr("transform", "translate(" + margin.left + "," + 0 + ")");
-
-	var axisLines = svg.append("g")
-						.attr("class", "axisLine")
-						.attr("transform", "translate(0," + ((height / 2) + 3) + ")")
-						.style("font-size", "0 pt")
-						.call(d3.svg.axis()
-								.scale(x)
-								.tickFormat(customTimeFormat)
-								.tickValues(null));
-	axisLines.selectAll("text").remove();
-	axisLines.selectAll("path").remove();
 
 	svg.append("g")
 		.attr("class", "x axis")
@@ -450,7 +400,7 @@ function loadGPXViewer(data, data2) {
 			.tickSize(0))
 		.select(".domain")
 		.style("stroke", "#111")
-		//.style("stroke-opacity", 0.5)
+		.style("stroke-opacity", 0.5)
 		.select(function() { return this.parentNode.appendChild(this.cloneNode(true)); })
 		.attr("class", "halo")
 		.style("stroke-opacity", 1.0)
@@ -468,8 +418,6 @@ function loadGPXViewer(data, data2) {
 		.attr("transform", "translate(0," + (height / 2) + ")")
 		.attr("r", handleRadius)
 		.style("fill", "#fff");
-	
-	
 	
 	// Map area
 	testDiv = gpxContainer.append("div").style("width", "100%").style("height", "100%");
