@@ -143,7 +143,7 @@ function play(immediate = false) {
 		var timeNow = new Date();
 
 		d3.timer(function() {
-			var lapsed = ( (new Date() - timeNow) * 250 ); // speed: 100 is slow, 1000 is fast
+			var lapsed = ( (new Date() - timeNow) * 100 ); // speed: 100 is slow, 1000 is fast
 			currentValue = startValue.getTime() + lapsed;
 			// var myDate = new Date( currentValue);
 			// console.log(myDate.toGMTString()+"<hr>"+myDate.toLocaleString());
